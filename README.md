@@ -1,5 +1,7 @@
 # PG Back Web Demo
 
+Docker Compose stack demonstrating [PG Back Web](https://github.com/eduardolat/pgbackweb) with local filesystem backups and MinIO for S3-API backups.
+
 Video URL: https://youtu.be/UdvAmPoD2Y0
 
 ## Usage
