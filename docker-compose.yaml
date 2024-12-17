@@ -1,0 +1,66 @@
+# adapted from source: https://github.com/eduardolat/pgbackweb?tab=readme-ov-file#installation
+
+services:
+  # PG Back Web (https://github.com/eduardolat/pgbackweb)
+  pgbackweb:
+    image: eduardolat/pgbackweb:latest
+    ports:
+      - 8085:8085
+    volumes:
+      # volume only needed if using local backup targets (i.e. not S3 destinations)
+      - ./backups:/backups
+    environment:
+      # generate a key: `openssl rand -hex 16`
+      # ! this should not be hardcoded as it is here, it should be an environment variable instead for production
+      PBW_ENCRYPTION_KEY: 7b626c60bdba3a5989c16b6bc7c36f4d
+      PBW_POSTGRES_CONN_STRING: postgresql://postgres:password@pgbackweb_database:5432/pgbackweb?sslmode=disable
+      # set timezone (optional), used for zoned PG Back Web service reporting (logs, web UI) and backup file names
+      TZ: America/Chicago
+    depends_on:
+      pgbackweb_database:
+        condition: service_healthy
+
+  # database for PG Back Web itself
+  pgbackweb_database:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: pgbackweb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # https://github.com/ghusta/docker-postgres-world-db
+  # more sample databases: https://wiki.postgresql.org/wiki/Sample_Databases
+  # connection string for this DB: postgresql://world:world123@app_database:5432/world-db?sslmode=disable
+  app_database:
+    # this tag uses Postgres 16: https://github.com/ghusta/docker-postgres-world-db/blob/master/CHANGELOG.md#2114-2024-08-11
+    image: ghusta/postgres-world-db:2.11.4
+    ports:
+      - 5433:5432
+
+  # MinIO S3-compatible object storage (https://min.io)
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server --console-address ":9001" /data
+    expose:
+      - 9000
+      - 9001
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    hostname: minio
+    volumes:
+      - ./minio-data:/data
